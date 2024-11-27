@@ -211,7 +211,9 @@ def collect_grads(dataloader,
                          device=device,
                          dtype=dtype,
                          block_size=block_size,
-                         max_batch_size=projector_batch_size)
+                         # This param caused an error for me
+                         #max_batch_size=projector_batch_size
+                         )
         projectors.append(proj)
 
     count = 0
