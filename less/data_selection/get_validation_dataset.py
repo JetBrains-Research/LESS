@@ -7,6 +7,7 @@ import torch
 from datasets import Dataset
 from torch.utils.data import DataLoader
 from transformers import DataCollatorForSeq2Seq, PreTrainedTokenizerBase
+from datasets import load_dataset, load_from_disk
 
 # llama-chat model's instruction format
 B_INST, E_INST = "[INST]", "[/INST]"
@@ -47,6 +48,15 @@ def tokenize(tokenizer: PreTrainedTokenizerBase,
 
     return full_input_ids, labels, attention_mask
 
+def tokenize_dataset_with_content(example, tokenizer, max_length):
+    content = example["content"]
+    full_input_ids = torch.tensor(tokenizer.encode(content, max_length=max_length))
+    attention_mask = [1] * len(full_input_ids)
+    return {
+        "input_ids": full_input_ids,
+        "labels": full_input_ids,
+        "attention_mask": attention_mask
+    }
 
 def get_bbh_dataset(data_dir: str,
                     tokenizer: PreTrainedTokenizerBase,
@@ -296,6 +306,54 @@ def get_mmlu_dataset(data_dir: str,
     return dataset
 
 
+def get_kstack_dataset(data_dir: str,
+                       tokenizer: PreTrainedTokenizerBase,
+                       max_length: int,
+                       use_chat_format=False,
+                       chat_format="tulu",
+                       **kwargs):
+
+
+    data = load_dataset("json",
+                        data_files=[f"{data_dir}/eval/kstack/validation.jsonl"]
+                    )["train"]
+
+    tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=True)
+    return tokenized_data
+
+
+def get_kstack_clean_dataset(data_dir: str,
+                             tokenizer: PreTrainedTokenizerBase,
+                             max_length: int,
+                            use_chat_format=False,
+                            chat_format="tulu",
+                            **kwargs):
+    data = load_dataset("JetBrains/KStack-clean")["train"]
+    tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=True)
+    return tokenized_data
+
+
+def get_golden_repos(data_dir: str,
+                     tokenizer: PreTrainedTokenizerBase,
+                     max_length: int,
+                    use_chat_format=False,
+                    chat_format="tulu",
+                    **kwargs):
+    data = load_from_disk(f"{data_dir}/eval/golden_repos")
+    tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=True)
+    return tokenized_data
+
+def get_lca_no_context(data_dir: str,
+                       tokenizer: PreTrainedTokenizerBase,
+                       max_length: int,
+                      use_chat_format=False,
+                      chat_format="tulu",
+                      **kwargs):
+      data = load_from_disk(f"{data_dir}/eval/lca_no_context")
+      tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=True)
+      return tokenized_data
+
+
 def get_dataset(task, **kwargs):
     """
     Get the dataset for the given task.
@@ -315,6 +373,14 @@ def get_dataset(task, **kwargs):
         return get_tydiqa_dataset(**kwargs)
     elif task == "mmlu":
         return get_mmlu_dataset(**kwargs)
+    elif task == "kstack":
+        return get_kstack_dataset(**kwargs)
+    elif task == "kstack_clean":
+        return get_kstack_clean_dataset(**kwargs)
+    elif task == "golden_repos":
+        return get_golden_repos(**kwargs)
+    elif task == "lca_no_context":
+        return get_lca_no_context(**kwargs)
     else:
         raise ValueError("Invalid task name")
 
