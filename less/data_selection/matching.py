@@ -2,6 +2,7 @@ import argparse
 import os
 
 import torch
+from tqdm import tqdm
 
 argparser = argparse.ArgumentParser(
     description='Script for selecting the data for training')
@@ -23,7 +24,7 @@ argparser.add_argument('--output_path', type=str, default="selected_data",
 
 args = argparser.parse_args()
 
-N_SUBTASKS = {"mmlu": 57, "bbh": 27, "tydiqa": 9}
+N_SUBTASKS = {"mmlu": 57, "bbh": 27, "tydiqa": 9, "kstack": 1000, "kstack_clean": 25000, "golden_repos": 13916, "lca_no_context": 2020}
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -54,29 +55,30 @@ for target_task_name in args.target_task_names:
             # validation_path = args.validation_gradient_path.format(
             # target_task_name, ckpt)
             validation_path = args.validation_gradient_path.format(
-                ckpt, target_task_name)
+            target_task_name, ckpt)
             if os.path.isdir(validation_path):
                 validation_path = os.path.join(validation_path, "all_orig.pt")
             validation_info = torch.load(validation_path)
 
             if not torch.is_tensor(validation_info):
                 validation_info = torch.tensor(validation_info)
-            validation_info = validation_info.to(device).float()
+            validation_info = validation_info.to(device).half()
             # gradient_path = args.gradient_path.format(train_file_name, ckpt)
-            gradient_path = args.gradient_path.format(ckpt, train_file_name)
+            gradient_path = args.gradient_path.format(train_file_name, ckpt)
             if os.path.isdir(gradient_path):
                 gradient_path = os.path.join(gradient_path, "all_orig.pt")
             training_info = torch.load(gradient_path)
 
             if not torch.is_tensor(training_info):
                 training_info = torch.tensor(training_info)
-            training_info = training_info.to(device).float()
+            training_info = training_info.to(device).half()
 
             influence_score += args.checkpoint_weights[i] * \
                 calculate_influence_score(
                     training_info=training_info, validation_info=validation_info)
-        influence_score = influence_score.reshape(
-            influence_score.shape[0], N_SUBTASKS[target_task_name], -1).mean(-1).max(-1)[0]
+        influence_score = influence_score.cpu().reshape(
+            influence_score.shape[0], N_SUBTASKS[target_task_name], -1
+        ).mean(-1).max(-1)[0]
         output_dir = os.path.join(args.output_path, target_task_name)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
