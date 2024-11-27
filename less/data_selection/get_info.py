@@ -11,6 +11,9 @@ from typing import Any
 import torch
 from peft import LoraConfig, PeftModel, TaskType, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers.optimization import AdamW
+from transformers.trainer_pt_utils import get_parameter_names
+from transformers.pytorch_utils import ALL_LAYERNORM_LAYERS
 
 from less.data_selection.collect_grad_reps import (collect_grads, collect_reps,
                                                    get_loss)
@@ -51,10 +54,43 @@ def load_model(model_name_or_path: str,
     return model
 
 
+# from this issue https://github.com/princeton-nlp/LESS/issues/4
+def load_adam_state(model, optimizer_state_path):
+    opt_grouped_parameters = [{'weight_decay': 0.0}, {'weight_decay': 0.0}]
+    opt_grouped_parameter_names = [None, None]
+
+    decay_parameters = [name for name in get_parameter_names(model, ALL_LAYERNORM_LAYERS) if 'bias' not in name]
+    opt_grouped_parameters[0]['params'], opt_grouped_parameter_names[0] = zip(*[
+        (p, n) for n, p in model.named_parameters() if n in decay_parameters and p.requires_grad])
+    param_name_to_size_dict = {n: p.size() for n, p in model.named_parameters() if p.requires_grad}
+    if len(param_name_to_size_dict) != len(opt_grouped_parameter_names[0]):
+        opt_grouped_parameters[1]['params'], opt_grouped_parameter_names[1] = zip(*[
+            (p, n) for n, p in model.named_parameters() if n not in decay_parameters and p.requires_grad])
+    else:
+        opt_grouped_parameters[1]['params'], opt_grouped_parameter_names[1] = [], []
+
+    optimizer = AdamW(opt_grouped_parameters)
+    optimizer.load_state_dict(torch.load(optimizer_state_path, map_location='cpu'))
+    saved_state_dict = optimizer.state_dict()
+
+    param_name_to_saved_state_dict = {}
+    for group_idx in range(len(saved_state_dict['param_groups'])):
+        group_param_indices = saved_state_dict['param_groups'][group_idx]['params']
+        group_param_names = opt_grouped_parameter_names[group_idx]
+        for param_idx, param_name in zip(group_param_indices, group_param_names):
+            param_size = param_name_to_size_dict[param_name]
+            exp_avg = saved_state_dict['state'][param_idx]['exp_avg']
+            exp_avg_sq = saved_state_dict['state'][param_idx]['exp_avg_sq']
+            assert exp_avg.size() == param_size
+            param_name_to_saved_state_dict[param_name] = {'exp_avg': exp_avg, 'exp_avg_sq': exp_avg_sq}
+
+    return param_name_to_saved_state_dict
+
+
 parser = argparse.ArgumentParser(
     description='Script for getting validation gradients')
 parser.add_argument('--task', type=str, default=None,
-                    help='Specify the task from bbh, tydiqa or mmlu. One of variables of task and train_file must be specified')
+                    help='Specify the task from bbh, tydiqa, mmlu, kstack, kstack_clean, golden_repos or lca_no_context. One of variables of task and train_file must be specified')
 parser.add_argument("--train_file", type=str,
                     default=None, help="The path to the training data file we'd like to obtain the gradients/representations for. One of variables of task and train_file must be specified")
 parser.add_argument(
@@ -125,9 +161,10 @@ if isinstance(model, PeftModel):
 
 adam_optimizer_state = None
 if args.info_type == "grads" and args.gradient_type == "adam":
-    optimizer_path = os.path.join(args.model_path, "optimizer.bin")
-    adam_optimizer_state = torch.load(
-        optimizer_path, map_location="cpu")["state"]
+    # optimizer.bin is only present when you train with DDP
+    # in general case, you have optimizer.pt
+    optimizer_path = os.path.join(args.model_path, "optimizer.pt")
+    adam_optimizer_state = load_adam_state(model, optimizer_path)
 
 if args.task is not None:
     dataset = get_dataset(args.task,
