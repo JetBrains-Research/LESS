@@ -318,7 +318,7 @@ def get_kstack_dataset(data_dir: str,
                         data_files=[f"{data_dir}/eval/kstack/validation.jsonl"]
                     )["train"]
 
-    tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=True, remove_columns=data.column_names)
+    tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=False, num_proc=6, remove_columns=data.column_names)
     return tokenized_data
 
 
@@ -329,7 +329,7 @@ def get_kstack_clean_dataset(data_dir: str,
                             chat_format="tulu",
                             **kwargs):
     data = load_dataset("JetBrains/KStack-clean")["train"]
-    tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=True, remove_columns=data.column_names)
+    tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=False, num_proc=6, remove_columns=data.column_names)
     return tokenized_data
 
 
@@ -340,7 +340,7 @@ def get_golden_repos(data_dir: str,
                     chat_format="tulu",
                     **kwargs):
     data = load_from_disk(f"{data_dir}/eval/golden_repos")
-    tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=True, remove_columns=data.column_names)
+    tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=False, num_proc=6, remove_columns=data.column_names)
     return tokenized_data
 
 def get_lca_no_context(data_dir: str,
@@ -349,8 +349,8 @@ def get_lca_no_context(data_dir: str,
                       use_chat_format=False,
                       chat_format="tulu",
                       **kwargs):
-      data = load_from_disk(f"{data_dir}/eval/lca_no_context")
-      tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=True, remove_columns=data.column_names)
+      data = load_from_disk(f"/home/puchkova/code-data-filtration/data/lca_no_context")
+      tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=False, num_proc=6, remove_columns=data.column_names)
       return tokenized_data
 
 
