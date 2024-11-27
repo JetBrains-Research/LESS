@@ -7,7 +7,6 @@ model_path=$2
 percentage=$3
 data_seed=$4
 job_name=$5
-output_dir=$6
 
 output_dir=../out/${job_name}
 if [[ ! -d $output_dir ]]; then
