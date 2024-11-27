@@ -349,7 +349,7 @@ def get_lca_no_context(data_dir: str,
                       use_chat_format=False,
                       chat_format="tulu",
                       **kwargs):
-      data = load_from_disk(f"/home/puchkova/code-data-filtration/data/lca_no_context")
+      data = load_from_disk(f"{data_dir}/eval/lca_no_context")
       tokenized_data = data.map(lambda example: tokenize_dataset_with_content(example, tokenizer, max_length), batched=False, num_proc=6, remove_columns=data.column_names)
       return tokenized_data
 
