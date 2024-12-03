@@ -73,6 +73,8 @@ Ideally, you would aim to create a datastore that encompasses a gradient of all 
 ### Step 3: Selecting data for a task
 To select data for a particular downstream task, it's necessary to first prepare data specific to that task, using the same instruction-tuning prompt format as was employed during training. We have set up data loading modules for three evaluation datasets featured in our work: BBH, TydiQA, and MMLU. If you're interested in data selection for additional tasks, you can expand the [`less/data_selection/get_validation_dataset.py`](less/data_selection/get_validation_dataset.py) script to accommodate those tasks. Similar to obtaining gradients for training data, run the following script. The primary difference is that this process will yield SGD gradients for the validation data, following the formulation of the influence estimation. 
 
+NB: for your custom datasets, you can provide a full path to the data in the DATA_DIR. Don't forget to adjust `less/data_selection/get_validation_dataset.py` to add your task name to the appropriate load method.
+
 ```bash
 
 CKPT=105

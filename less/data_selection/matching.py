@@ -2,6 +2,7 @@ import argparse
 import os
 
 import torch
+from get_validation_dataset import get_dataset
 from tqdm import tqdm
 
 argparser = argparse.ArgumentParser(
@@ -23,8 +24,6 @@ argparser.add_argument('--output_path', type=str, default="selected_data",
 
 
 args = argparser.parse_args()
-
-N_SUBTASKS = {"mmlu": 57, "bbh": 27, "tydiqa": 9, "kstack": 1000, "kstack_clean": 25000, "golden_repos": 13916, "lca_no_context": 2020}
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -49,6 +48,8 @@ if sum(args.checkpoint_weights) != 1:
 
 # calculate the influence score for each validation task
 for target_task_name in args.target_task_names:
+    val_dataset = get_dataset(target_task_name)
+    num_val_examples = len(val_dataset)
     for train_file_name in args.train_file_names:
         influence_score = 0
         for i, ckpt in enumerate(args.ckpts):
@@ -77,7 +78,7 @@ for target_task_name in args.target_task_names:
                 calculate_influence_score(
                     training_info=training_info, validation_info=validation_info)
         influence_score = influence_score.cpu().reshape(
-            influence_score.shape[0], N_SUBTASKS[target_task_name], -1
+            influence_score.shape[0], num_val_examples, -1
         ).mean(-1).max(-1)[0]
         output_dir = os.path.join(args.output_path, target_task_name)
         if not os.path.exists(output_dir):
