@@ -23,6 +23,8 @@ argparser.add_argument('--validation_gradient_path', type=str,
                        default="{} ckpt{}", help='The path to the validation gradient file')
 argparser.add_argument('--output_path', type=str, default="selected_data",
                        help='The path to the output')
+argparser.add_argument('--model_path', type=str, default="Model path (to initialize a tokenizer)",
+                       help='The path to the output')
 
 
 args = argparser.parse_args()
@@ -50,7 +52,7 @@ if sum(args.checkpoint_weights) != 1:
 
 # calculate the influence score for each validation task
 for target_task_name, target_task_file in zip(args.target_task_names, args.target_task_files):
-    val_dataset = get_dataset(task=target_task_name, data_dir=target_task_file)
+    val_dataset = get_dataset(task=target_task_name, data_dir=target_task_file, model_path=args.model_path,)
     num_val_examples = len(val_dataset)
     for train_file_name in args.train_file_names:
         influence_score = 0

@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 from datasets import Dataset
 from torch.utils.data import DataLoader
-from transformers import DataCollatorForSeq2Seq, PreTrainedTokenizerBase
+from transformers import DataCollatorForSeq2Seq, PreTrainedTokenizerBase, AutoTokenizer
 from datasets import load_dataset, load_from_disk
 
 # llama-chat model's instruction format
@@ -395,8 +395,8 @@ def get_mmlu_dataset(
 def get_custom_dataset(
         data_dir: str,
         load_method: str,
-        tokenizer=None, # these are not used in this function
-        max_length=None,
+        tokenizer: AutoTokenizer,
+        max_length=None,  # these are not used in this function
         use_chat_format=False,
         chat_format=None,
         **kwargs):
@@ -441,12 +441,22 @@ def get_dataset(task, **kwargs):
     Returns:
         Dataset: The dataset.
     """
+    if "tokenizer" not in kwargs and "model_path" in kwargs:
+        model_path = kwargs.get("model_path")
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        if tokenizer.pad_token is None:
+            tokenizer.add_special_tokens({"pad_token": "<pad>"})
+        kwargs["tokenizer"] = tokenizer
+    else:
+        raise ValueError("No tokenizer found")
+
     if task == "bbh":
         return get_bbh_dataset(**kwargs)
     elif task == "tydiqa":
         return get_tydiqa_dataset(**kwargs)
     elif task == "mmlu":
         return get_mmlu_dataset(**kwargs)
+
     elif task in ["kstack_clean"]:
         return get_custom_dataset(**kwargs, load_method="hf")
     elif task in ["kstack"]:
