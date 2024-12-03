@@ -2,7 +2,7 @@ import argparse
 import os
 
 import torch
-from get_validation_dataset import get_dataset
+from less.data_selection.get_validation_dataset import get_dataset
 from tqdm import tqdm
 
 argparser = argparse.ArgumentParser(
@@ -17,6 +17,8 @@ argparser.add_argument('--checkpoint_weights', type=float, nargs='+',
                        help="checkpoint weights")
 argparser.add_argument('--target_task_names', type=str,
                        nargs='+', help="The name of the target tasks")
+argparser.add_argument('--target_task_files', type=str, nargs='+',
+                       help='The name of the validation file')
 argparser.add_argument('--validation_gradient_path', type=str,
                        default="{} ckpt{}", help='The path to the validation gradient file')
 argparser.add_argument('--output_path', type=str, default="selected_data",
@@ -47,8 +49,8 @@ if sum(args.checkpoint_weights) != 1:
     args.checkpoint_weights = [i/s for i in args.checkpoint_weights]
 
 # calculate the influence score for each validation task
-for target_task_name in args.target_task_names:
-    val_dataset = get_dataset(target_task_name)
+for target_task_name, target_task_file in zip(args.target_task_names, args.target_task_files):
+    val_dataset = get_dataset(task=target_task_name, data_dir=target_task_file)
     num_val_examples = len(val_dataset)
     for train_file_name in args.train_file_names:
         influence_score = 0

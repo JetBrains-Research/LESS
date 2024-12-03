@@ -392,65 +392,33 @@ def get_mmlu_dataset(
     return dataset
 
 
-def get_local_json_dataset(
-    data_dir: str,
-    tokenizer: PreTrainedTokenizerBase,
-    max_length: int,
-    use_chat_format=False,
-    chat_format="tulu",
-    **kwargs,
-):
-
-    data = load_dataset("json", data_files=[data_dir])
+def get_custom_dataset(
+        data_dir: str,
+        load_method: str,
+        tokenizer=None, # these are not used in this function
+        max_length=None,
+        use_chat_format=False,
+        chat_format=None,
+        **kwargs):
+    '''
+    load_method:
+        - "hf"
+        - "local_json"
+        - "local_hf"
+    '''
+    if load_method == "hf":
+        data = load_dataset(data_dir)
+    elif load_method == "local_json":
+        data = load_dataset("json", data_files=[data_dir])
+    elif load_method == "local_hf":
+        data = load_from_disk(data_dir)
+    else:
+        raise ValueError("Invalid load_method")
     if "validation" in data:
         data = data["validation"]
     else:
         data = data["train"]
 
-    tokenized_data = data.map(
-        lambda example: tokenize_dataset_with_content(example, tokenizer, max_length),
-        batched=False,
-        num_proc=6,
-        remove_columns=data.column_names,
-    )
-    return tokenized_data
-
-
-def get_hf_dataset(
-    data_dir: str,
-    tokenizer: PreTrainedTokenizerBase,
-    max_length: int,
-    use_chat_format=False,
-    chat_format="tulu",
-    **kwargs,
-):
-    data = load_dataset(data_dir)
-    if "validation" in data:
-        data = data["validation"]
-    else:
-        data = data["train"]
-    tokenized_data = data.map(
-        lambda example: tokenize_dataset_with_content(example, tokenizer, max_length),
-        batched=False,
-        num_proc=6,
-        remove_columns=data.column_names,
-    )
-    return tokenized_data
-
-
-def get_local_hf_dataset(
-    data_dir: str,
-    tokenizer: PreTrainedTokenizerBase,
-    max_length: int,
-    use_chat_format=False,
-    chat_format="tulu",
-    **kwargs,
-):
-    data = load_from_disk(data_dir)
-    if "validation" in data:
-        data = data["validation"]
-    else:
-        data = data["train"]
     tokenized_data = data.map(
         lambda example: tokenize_dataset_with_content(example, tokenizer, max_length),
         batched=False,
@@ -480,11 +448,11 @@ def get_dataset(task, **kwargs):
     elif task == "mmlu":
         return get_mmlu_dataset(**kwargs)
     elif task in ["kstack_clean"]:
-        return get_hf_dataset(**kwargs)
-    elif task == ["kstack"]:
-        return get_local_json_dataset(**kwargs)
+        return get_custom_dataset(**kwargs, load_method="hf")
+    elif task in ["kstack"]:
+        return get_custom_dataset(**kwargs, load_method="local_json")
     elif task in ["golden_repos", "lca_no_context"]:
-        return get_local_hf_dataset(**kwargs)
+        return get_custom_dataset(**kwargs, load_method="local_hf")
     else:
         raise ValueError("Invalid task name")
 
