@@ -6,17 +6,20 @@ import pandas as pd
 import torch
 from datasets import Dataset
 from torch.utils.data import DataLoader
-from transformers import DataCollatorForSeq2Seq, PreTrainedTokenizerBase
+from transformers import DataCollatorForSeq2Seq, PreTrainedTokenizerBase, AutoTokenizer
+from datasets import load_dataset, load_from_disk
 
 # llama-chat model's instruction format
 B_INST, E_INST = "[INST]", "[/INST]"
 
 
-def tokenize(tokenizer: PreTrainedTokenizerBase,
-             query: str,
-             completion: str,
-             max_length: int,
-             print_ex: bool = False) -> Tuple[torch.Tensor, torch.Tensor, List[int]]:
+def tokenize(
+    tokenizer: PreTrainedTokenizerBase,
+    query: str,
+    completion: str,
+    max_length: int,
+    print_ex: bool = False,
+) -> Tuple[torch.Tensor, torch.Tensor, List[int]]:
     """
     Formats a chat conversation into input tensors for a transformer model.
 
@@ -37,27 +40,38 @@ def tokenize(tokenizer: PreTrainedTokenizerBase,
         print(full_prompt)
         print("******** Example ends ********")
 
-    prompt_input_ids = torch.tensor(
-        tokenizer.encode(query, max_length=max_length))
-    full_input_ids = torch.tensor(
-        tokenizer.encode(full_prompt, max_length=max_length))
+    prompt_input_ids = torch.tensor(tokenizer.encode(query, max_length=max_length))
+    full_input_ids = torch.tensor(tokenizer.encode(full_prompt, max_length=max_length))
     labels = torch.tensor(tokenizer.encode(full_prompt, max_length=max_length))
-    labels[:len(prompt_input_ids)] = -100
+    labels[: len(prompt_input_ids)] = -100
     attention_mask = [1] * len(full_input_ids)
 
     return full_input_ids, labels, attention_mask
 
 
-def get_bbh_dataset(data_dir: str,
-                    tokenizer: PreTrainedTokenizerBase,
-                    max_length: int,
-                    use_chat_format: bool = True,
-                    chat_format: str = "tulu",
-                    **kwargs):
-    """
-    Get the bbh dataset in the instruction tuning format. Each example is formatted as follows: 
+def tokenize_dataset_with_content(example, tokenizer, max_length):
+    content = example["content"]
+    full_input_ids = torch.tensor(tokenizer.encode(content, max_length=max_length))
+    attention_mask = [1] * len(full_input_ids)
+    return {
+        "input_ids": full_input_ids,
+        "labels": full_input_ids,
+        "attention_mask": attention_mask,
+    }
 
-    Query: 
+
+def get_bbh_dataset(
+    data_dir: str,
+    tokenizer: PreTrainedTokenizerBase,
+    max_length: int,
+    use_chat_format: bool = True,
+    chat_format: str = "tulu",
+    **kwargs,
+):
+    """
+    Get the bbh dataset in the instruction tuning format. Each example is formatted as follows:
+
+    Query:
     <|user|>
     <Task Prompt>
     <Ex1>
@@ -104,21 +118,35 @@ def get_bbh_dataset(data_dir: str,
 
         for i in range(len(exes)):
             target_ex = exes[i]
-            other_exes = exes[:i] + exes[i+1:]
+            other_exes = exes[:i] + exes[i + 1 :]
             icl = form_icl(other_exes)
             question, answer = target_ex.split("\nA:")
 
             if use_chat_format:
-                if chat_format == "tulu":  # we follow the tulu instruction tuning format
-                    question = "<|user|>\n" + task_prompt.strip() + "\n\n" + icl + \
-                        f"{question}" + "\n<|assistant|>\nA:"
+                if (
+                    chat_format == "tulu"
+                ):  # we follow the tulu instruction tuning format
+                    question = (
+                        "<|user|>\n"
+                        + task_prompt.strip()
+                        + "\n\n"
+                        + icl
+                        + f"{question}"
+                        + "\n<|assistant|>\nA:"
+                    )
                 else:
-                    question = f"<s> {B_INST} {task_prompt.strip()} {question} {E_INST} A:"
+                    question = (
+                        f"<s> {B_INST} {task_prompt.strip()} {question} {E_INST} A:"
+                    )
             else:
-                question = task_prompt.strip() + "\n\n" + \
-                    f"{question}" + "\nA:"
+                question = task_prompt.strip() + "\n\n" + f"{question}" + "\nA:"
             full_input_ids, labels, attention_mask = tokenize(
-                tokenizer, question, answer, max_length, print_ex=True if i == 0 else False)
+                tokenizer,
+                question,
+                answer,
+                max_length,
+                print_ex=True if i == 0 else False,
+            )
             dataset["input_ids"].append(full_input_ids)
             dataset["labels"].append(labels)
             dataset["attention_mask"].append(attention_mask)
@@ -127,23 +155,25 @@ def get_bbh_dataset(data_dir: str,
     return dataset
 
 
-def get_tydiqa_dataset(data_dir: str,
-                       tokenizer: PreTrainedTokenizerBase,
-                       max_length: int,
-                       use_chat_format: bool = True,
-                       chat_format: str = "tulu",
-                       zh: bool = False,
-                       **kwargs) -> Dataset:
+def get_tydiqa_dataset(
+    data_dir: str,
+    tokenizer: PreTrainedTokenizerBase,
+    max_length: int,
+    use_chat_format: bool = True,
+    chat_format: str = "tulu",
+    zh: bool = False,
+    **kwargs,
+) -> Dataset:
     """
-    Get the tydiqa dataset in the instruction tuning format. Each example is formatted as follows:  
+    Get the tydiqa dataset in the instruction tuning format. Each example is formatted as follows:
 
-    Query: 
+    Query:
     <|user|>
     <Task Prompt>
     <Passage>
     <Question>
     <|assistant|>
-    Answer: 
+    Answer:
 
     Completion:
     <Answer>
@@ -162,22 +192,71 @@ def get_tydiqa_dataset(data_dir: str,
 
     # Same template as https://github.com/allenai/open-instruct/blob/main/eval/tydiqa/run_eval.py#L17
     encoding_templates_with_context = {
-        "english": ("Answer the following question based on the information in the given passage.", "Passage:", "Question:", "Answer:"),
-        "arabic": ("أجب على السؤال التالي بناءً على المعلومات في المقطع المعطى.", "المقطع:", "السؤال:", "الإجابة:"),
-        "bengali": ("প্রদত্ত অধ্যায়ের তথ্যের উপর ভিত্তি করে নিম্নলিখিত প্রশ্নের উত্তর দিন।", "অধ্যায়:", "প্রশ্ন:", "উত্তর:"),
-        "finnish": ("Vastaa seuraavaan kysymykseen annetun kappaleen tiedon perusteella.", "Kappale:", "Kysymys:", "Vastaus:"),
-        "indonesian": ("Jawab pertanyaan berikut berdasarkan informasi di bagian yang diberikan.", "Bagian:", "Pertanyaan:", "Jawaban:"),
-        "korean": ("주어진 문단의 정보에 기반하여 다음 질문에 답하십시오.", "문단:", "질문:", "답변:"),
-        "russian": ("Ответьте на следующий вопрос на основе информации в данном отрывке.", "Отрывок:", "Вопрос:", "Ответ:"),
-        "swahili": ("Jibu swali lifuatalo kulingana na habari kwenye kifungu kilichotolewa.", "Kifungu:", "Swali:", "Jibu:"),
-        "telugu": ("ఇచ్చిన పేరాలోని సమాచారం ఆధారంగా కింది ప్రశ్నకు సమాధానం ఇవ్వండి.", "పేరా:", "ప్రశ్న:", "సమాధానం:")
+        "english": (
+            "Answer the following question based on the information in the given passage.",
+            "Passage:",
+            "Question:",
+            "Answer:",
+        ),
+        "arabic": (
+            "أجب على السؤال التالي بناءً على المعلومات في المقطع المعطى.",
+            "المقطع:",
+            "السؤال:",
+            "الإجابة:",
+        ),
+        "bengali": (
+            "প্রদত্ত অধ্যায়ের তথ্যের উপর ভিত্তি করে নিম্নলিখিত প্রশ্নের উত্তর দিন।",
+            "অধ্যায়:",
+            "প্রশ্ন:",
+            "উত্তর:",
+        ),
+        "finnish": (
+            "Vastaa seuraavaan kysymykseen annetun kappaleen tiedon perusteella.",
+            "Kappale:",
+            "Kysymys:",
+            "Vastaus:",
+        ),
+        "indonesian": (
+            "Jawab pertanyaan berikut berdasarkan informasi di bagian yang diberikan.",
+            "Bagian:",
+            "Pertanyaan:",
+            "Jawaban:",
+        ),
+        "korean": (
+            "주어진 문단의 정보에 기반하여 다음 질문에 답하십시오.",
+            "문단:",
+            "질문:",
+            "답변:",
+        ),
+        "russian": (
+            "Ответьте на следующий вопрос на основе информации в данном отрывке.",
+            "Отрывок:",
+            "Вопрос:",
+            "Ответ:",
+        ),
+        "swahili": (
+            "Jibu swali lifuatalo kulingana na habari kwenye kifungu kilichotolewa.",
+            "Kifungu:",
+            "Swali:",
+            "Jibu:",
+        ),
+        "telugu": (
+            "ఇచ్చిన పేరాలోని సమాచారం ఆధారంగా కింది ప్రశ్నకు సమాధానం ఇవ్వండి.",
+            "పేరా:",
+            "ప్రశ్న:",
+            "సమాధానం:",
+        ),
     }
 
     # Chinese validation examples
     if zh:
         for lang in encoding_templates_with_context:
             encoding_templates_with_context[lang] = (
-                "根据所给文章中的信息回答以下问题。", "文章:", "问题:", "答案:")
+                "根据所给文章中的信息回答以下问题。",
+                "文章:",
+                "问题:",
+                "答案:",
+            )
 
     file_name = "tydiqa-one-shot-zh.json" if zh else "tydiqa-one-shot.json"
     file = os.path.join(f"{data_dir}/eval/tydiqa", file_name)
@@ -187,10 +266,19 @@ def get_tydiqa_dataset(data_dir: str,
 
     for i, lang in enumerate(examples):
         example = examples[lang][0]
-        prompt, p_template, q_template, a_template = encoding_templates_with_context[lang]
-        prompt += p_template + " " + \
-            format(example["context"]) + "\n" + q_template + \
-            " " + format(example["question"]) + "\n"
+        prompt, p_template, q_template, a_template = encoding_templates_with_context[
+            lang
+        ]
+        prompt += (
+            p_template
+            + " "
+            + format(example["context"])
+            + "\n"
+            + q_template
+            + " "
+            + format(example["question"])
+            + "\n"
+        )
         answer = " " + format(example["answers"][0]["text"])
         if use_chat_format:
             if chat_format == "tulu":
@@ -200,7 +288,8 @@ def get_tydiqa_dataset(data_dir: str,
         else:
             prompt = prompt + a_template
         full_input_ids, labels, attention_mask = tokenize(
-            tokenizer, prompt, answer, max_length, print_ex=True)
+            tokenizer, prompt, answer, max_length, print_ex=True
+        )
         dataset["input_ids"].append(full_input_ids)
         dataset["labels"].append(labels)
         dataset["attention_mask"].append(attention_mask)
@@ -208,12 +297,14 @@ def get_tydiqa_dataset(data_dir: str,
     return dataset
 
 
-def get_mmlu_dataset(data_dir: str,
-                     tokenizer: PreTrainedTokenizerBase,
-                     max_length: int,
-                     use_chat_format=True,
-                     chat_format="tulu",
-                     **kwargs):
+def get_mmlu_dataset(
+    data_dir: str,
+    tokenizer: PreTrainedTokenizerBase,
+    max_length: int,
+    use_chat_format=True,
+    chat_format="tulu",
+    **kwargs,
+):
     """
     Get the MMLU dataset in the instruction tuning format. Each example is formatted as follows:
 
@@ -274,7 +365,7 @@ def get_mmlu_dataset(data_dir: str,
     for subject in subjects:
         dev_df = pd.read_csv(
             os.path.join(mmlu_data_dir, "dev", subject + "_dev.csv"), header=None
-        )[: k]
+        )[:k]
         for i in range(k):
             prompt = gen_prompt(dev_df, subject, i)
             answer = " " + dev_df.iloc[i, dev_df.shape[1] - 2 + 1]
@@ -288,12 +379,53 @@ def get_mmlu_dataset(data_dir: str,
             else:
                 prompt = prompt
             full_input_ids, labels, attention_mask = tokenize(
-                tokenizer, prompt, answer, max_length, print_ex=True if i == 0 else False)
+                tokenizer,
+                prompt,
+                answer,
+                max_length,
+                print_ex=True if i == 0 else False,
+            )
             dataset["input_ids"].append(full_input_ids)
             dataset["labels"].append(labels)
             dataset["attention_mask"].append(attention_mask)
     dataset = Dataset.from_dict(dataset)
     return dataset
+
+
+def get_custom_dataset(
+        data_dir: str,
+        load_method: str,
+        tokenizer: AutoTokenizer,
+        max_length=None,  # these are not used in this function
+        use_chat_format=False,
+        chat_format=None,
+        **kwargs):
+    '''
+    load_method:
+        - "hf"
+        - "local_json"
+        - "local_hf"
+    '''
+    if load_method == "hf":
+        data = load_dataset(data_dir)
+    elif load_method == "local_json":
+        data = load_dataset("json", data_files=[data_dir])
+    elif load_method == "local_hf":
+        data = load_from_disk(data_dir)
+    else:
+        raise ValueError("Invalid load_method")
+    if "validation" in data:
+        data = data["validation"]
+    else:
+        data = data["train"]
+
+    tokenized_data = data.map(
+        lambda example: tokenize_dataset_with_content(example, tokenizer, max_length),
+        batched=False,
+        num_proc=6,
+        remove_columns=data.column_names,
+    )
+    return tokenized_data
 
 
 def get_dataset(task, **kwargs):
@@ -309,21 +441,38 @@ def get_dataset(task, **kwargs):
     Returns:
         Dataset: The dataset.
     """
+    if "tokenizer" not in kwargs and "model_path" in kwargs:
+        model_path = kwargs.get("model_path")
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        if tokenizer.pad_token is None:
+            tokenizer.add_special_tokens({"pad_token": "<pad>"})
+        kwargs["tokenizer"] = tokenizer
+    else:
+        raise ValueError("No tokenizer found")
+
     if task == "bbh":
         return get_bbh_dataset(**kwargs)
     elif task == "tydiqa":
         return get_tydiqa_dataset(**kwargs)
     elif task == "mmlu":
         return get_mmlu_dataset(**kwargs)
+
+    elif task in ["kstack_clean"]:
+        return get_custom_dataset(**kwargs, load_method="hf")
+    elif task in ["kstack"]:
+        return get_custom_dataset(**kwargs, load_method="local_json")
+    elif task in ["golden_repos", "lca_no_context"]:
+        return get_custom_dataset(**kwargs, load_method="local_hf")
     else:
         raise ValueError("Invalid task name")
 
 
 def get_dataloader(dataset, tokenizer, batch_size=1):
-    data_collator = DataCollatorForSeq2Seq(
-            tokenizer=tokenizer, padding="longest") 
-    dataloader = DataLoader(dataset,
-                            batch_size=batch_size,  # When getting gradients, we only do this single batch process
-                            collate_fn=data_collator)
+    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, padding="longest")
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,  # When getting gradients, we only do this single batch process
+        collate_fn=data_collator,
+    )
     print("There are {} examples in the dataset".format(len(dataset)))
     return dataloader

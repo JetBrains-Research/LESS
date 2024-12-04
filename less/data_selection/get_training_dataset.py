@@ -82,14 +82,17 @@ def get_encode_function(raw_datasets, tokenizer, max_seq_length, func="encode_wi
             encode_func = encode_with_messages_format
         else:
             encode_func = encode_with_messages_format_with_llama2_chat
-        encode_function = partial(
+    elif "content" in raw_datasets.column_names:
+        encode_func = encode_content
+    else:
+        raise ValueError(
+            "You need to have either 'prompt', 'completion' or 'messages' or 'content' in your column names.")
+
+    encode_function = partial(
             encode_func,
             tokenizer=tokenizer,
             max_seq_length=max_seq_length,
         )
-    else:
-        raise ValueError(
-            "You need to have either 'prompt'&'completion' or 'messages' in your column names.")
     return encode_function
 
 
@@ -168,6 +171,25 @@ def encode_with_messages_format(example, tokenizer, max_seq_length):
                 break
 
     attention_mask = torch.ones_like(input_ids)
+    return {
+        'input_ids': input_ids.flatten(),
+        'labels': labels.flatten(),
+        'attention_mask': attention_mask.flatten(),
+    }
+
+
+def encode_content(example, tokenizer, max_seq_length):
+    content = example['content']
+    if len(content) == 0:
+        raise ValueError('content field is empty.')
+
+    tokenized_example = tokenizer(
+        content, return_tensors='pt', max_length=max_seq_length, truncation=True)
+
+    input_ids = tokenized_example.input_ids
+    labels = input_ids.clone()
+    attention_mask = torch.ones_like(input_ids)
+
     return {
         'input_ids': input_ids.flatten(),
         'labels': labels.flatten(),
