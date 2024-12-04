@@ -99,7 +99,7 @@ VALIDATION_GRADIENT_PATH=../grads/llama2-7b-p0.05-lora-seed3/{}-ckpt{}-sgd/dim${
 TARGET_TASK_NAMES="tydiqa"
 TARGET_TASK_FILES="..."
 SELECTED_DATA_OUTPUT_PATH="../selected_data"
-MODEL_PATH=/home/puchkova/out/deepseek1.3-p0.05-lora-seed3/checkpoint-${CKPT}
+MODEL_PATH=../out/llama2-7b-p0.05-lora-seed3/checkpoint-${CKPT}
 
 ./less/scripts/data_selection/matching.sh "$GRADIENT_PATH" "$TRAIN_FILE_NAMES" "$CKPTS" "$CHECKPOINT_WEIGHTS" "$VALIDATION_GRADIENT_PATH" "$TARGET_TASK_NAMES" "$TARGET_TASK_FILES" "$SELECTED_DATA_OUTPUT_PATH" "$MODEL_PATH"
 ```
