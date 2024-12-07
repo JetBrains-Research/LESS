@@ -27,6 +27,8 @@ pip3 install torch==2.1.2 torchvision torchaudio
 ```
 cd LESS
 pip install -r requirement.txt
+or 
+poetry install
 ```
 
 **Step 3**: Finally, install the `less` package in editable mode to make it accessible for your development environment:
@@ -44,15 +46,10 @@ We follow the [open-instruct](https://github.com/allenai/open-instruct?tab=readm
 To enhance downstream performance from data selection, it's crucial to start with a warmup training step. This involves selecting a small portion of your entire dataset to train using the LoRA method. Follow these steps for effective warmup training:
 
 ```bash 
-DATA_DIR=../data
-MODEL_PATH=meta-llama/Llama-2-7b-hf
-PERCENTAGE=0.05 # percentage of the full data to train, you can specify the training file you want to use in the script
-DATA_SEED=3
-JOB_NAME=llama2-7b-p${PERCENTAGE}-lora-seed${DATA_SEED}
-
-./less/scripts/train/warmup_lora_train.sh "$DATA_DIR" "$MODEL_PATH" "$PERCENTAGE" "$DATA_SEED" "$JOB_NAME"
+python3 -m less/scripts/train/warmup_lora_train --train_file <stre> --model_path <str>
 ```
-
+NB: there are more optional arguments that you can use to specify the training process. Please refer to the script for more details.
+The checkpoint will be saved in the `out` directory.
 ### Step 2: Building the gradient datastore
 Once the initial warmup training stage is completed, we will collect gradients for the entire training dataset. For each checkpoint, our goal is to obtain the gradients of all the training data that we would like to select from. An example script is shown below.
 
