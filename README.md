@@ -68,20 +68,19 @@ Ideally, you would aim to create a datastore that encompasses a gradient of all 
 ### Step 3: Selecting data for a task
 To select data for a particular downstream task, it's necessary to first prepare data specific to that task, using the same instruction-tuning prompt format as was employed during training. We have set up data loading modules for three evaluation datasets featured in our work: BBH, TydiQA, and MMLU. If you're interested in data selection for additional tasks, you can expand the [`less/data_selection/get_validation_dataset.py`](less/data_selection/get_validation_dataset.py) script to accommodate those tasks. Similar to obtaining gradients for training data, run the following script. The primary difference is that this process will yield SGD gradients for the validation data, following the formulation of the influence estimation. 
 
-NB: for your custom datasets, you can provide a full path to the data or HF repo name in the DATA_DIR. Don't forget to adjust `less/data_selection/get_validation_dataset.py` to add your task name to the appropriate load method.
+You should gain the gradients of the validation data for all the checkpoints you used for building the gradient datastore in the previous step. 
 
 ```bash
-
-CKPT=105
-TASK=tydiqa
-MODEL_PATH=../out/llama2-7b-p0.05-lora-seed3/checkpoint-${CKPT}
-OUTPUT_PATH=../grads/llama2-7b-p0.05-lora-seed3/${TASK}-ckpt${CKPT}-sgd # for validation data, we always use sgd
-DATA_DIR=../data
-DIMS="4096 8192" # We use 8192 as our default projection dimension 
-
-./less/scripts/get_info/grad/get_eval_lora_grads.sh "$TASK" "$DATA_DIR" "$MODEL_PATH" $OUTPUT_PATH "$DIMS"
+python3 -m less/scripts/get_info/grad/get_eval_lora_grads --task <str> --data_dir <str> --val_task_load_method <str> --model_path <str> --ckpts <str> --dims <int>
 ```
-You should gain the gradients of the validation data for all the checkpoints you used for building the gradient datastore in the previous step. After obtaining the gradients for the validation data, we can then select data for the task. The following script will calculate the influence score for each training data point, and select the top-k data points with the highest influence score.
+`task` is the name of the task, which will be used to store the gradients.
+`data_dir` is the path to the data directory. If you are using one of the predifined datasets ("bbh", "tydiqa", "mmlu"), this should point to the data directory. If you are using your own custom dataset, this should be a full path to a JSONL file or a HF repo name.
+`val_task_load_method` is the method to load the validation data, can be `hf`, `local_hf`, `local_json`. You should specify this if you are using your own custom dataset. Default is `None`, then it's assumned that you are using the predifined datasets.
+`model_path` is the path to the model in the `out` directory, e.g. `llama2-7b-p0.05-lora-seed3`.
+`ckpts` is the list of checkpoints to compute gradients for, e.g. `105 211 317 420`.
+`dims` is the dimension of projection, default is 8192.
+
+After obtaining the gradients for the validation data, we can then select data for the task. The following script will calculate the influence score for each training data point, and select the top-k data points with the highest influence score.
 
 ```bash
 DIM=8192 # decide which dimension to use

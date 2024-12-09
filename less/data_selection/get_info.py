@@ -113,6 +113,8 @@ parser.add_argument("--chat_format", type=str,
                     default="tulu", help="The chat format")
 parser.add_argument("--use_chat_format", type=bool,
                     default=True, help="Whether to use chat format")
+parser.add_argument("--val_task_load_method", type=str,
+                    default=None, help="The method to load the validation data, can be 'hf', 'local_hf', 'local_json'")
 parser.add_argument("--max_length", type=int, default=2048,
                     help="The maximum length")
 parser.add_argument("--zh", default=False, action="store_true",
@@ -169,6 +171,7 @@ if args.info_type == "grads" and args.gradient_type == "adam":
 if args.task is not None:
     dataset = get_dataset(args.task,
                           data_dir=args.data_dir,
+                          val_task_load_method=args.val_task_load_method,
                           tokenizer=tokenizer,
                           chat_format=args.chat_format,
                           use_chat_format=args.use_chat_format,

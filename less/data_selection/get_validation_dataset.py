@@ -456,13 +456,8 @@ def get_dataset(task, **kwargs):
         return get_tydiqa_dataset(**kwargs)
     elif task == "mmlu":
         return get_mmlu_dataset(**kwargs)
-
-    elif task in ["kstack_clean"]:
-        return get_custom_dataset(**kwargs, load_method="hf")
-    elif task in ["kstack"]:
-        return get_custom_dataset(**kwargs, load_method="local_json")
-    elif task in ["golden_repos", "lca_no_context"]:
-        return get_custom_dataset(**kwargs, load_method="local_hf")
+    elif "val_task_load_method" in kwargs and kwargs["val_task_load_method"] is not None:
+        return get_custom_dataset(**kwargs, load_method=kwargs["val_task_load_method"])
     else:
         raise ValueError("Invalid task name")
 
