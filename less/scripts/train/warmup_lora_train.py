@@ -1,6 +1,6 @@
 import subprocess
 from pathlib import Path
-import fire
+import argparse
 import random  
 
 def run_training(
@@ -11,11 +11,9 @@ def run_training(
     data_seed: int=3,
 ):
     job_name = f"{model_path.split('/')[-1]}-p{percentage}-lora-seed{data_seed}"
-    # Create output directory
     output_dir = Path("../out") / job_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Training files
     train_file = [str(Path(data_dir) / train_file)]
 
     # Base training args from base_training_args.sh
@@ -79,11 +77,19 @@ def run_training(
             universal_newlines=True
         )
         
-        # Stream output to console
+        # Stream output to console and log file
         for line in process.stdout:
             print(line, end="")
+            f.write(line)
             
         process.wait()
 
 if __name__ == "__main__":
-    fire.Fire(run_training)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--train_file", type=str, required=True)
+    parser.add_argument("--model_path", type=str, required=True)
+    parser.add_argument("--data_dir", type=str, default="data/train")
+    parser.add_argument("--percentage", type=float, default=0.05)
+    parser.add_argument("--data_seed", type=int, default=3)
+    args = parser.parse_args()
+    run_training(args.train_file, args.model_path, args.data_dir, args.percentage, args.data_seed)
