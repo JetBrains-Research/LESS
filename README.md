@@ -46,26 +46,24 @@ We follow the [open-instruct](https://github.com/allenai/open-instruct?tab=readm
 To enhance downstream performance from data selection, it's crucial to start with a warmup training step. This involves selecting a small portion of your entire dataset to train using the LoRA method. Follow these steps for effective warmup training:
 
 ```bash 
-python3 -m less/scripts/train/warmup_lora_train --train_file <stre> --model_path <str>
+python3 -m less/scripts/train/warmup_lora_train --train_file <str> --model_path <str>
 ```
-NB: there are more optional arguments that you can use to specify the training process. Please refer to the script for more details.
+NB: there are more optional arguments that you can use to alter the training process. Please refer to the script for more details.
+You can also set `--percentage` to specify the percentage of data to train on (default is 0.05) and `--data_seed` to specify the seed for data selection (default is 3).
 The checkpoint will be saved in the `out` directory.
+
 ### Step 2: Building the gradient datastore
 Once the initial warmup training stage is completed, we will collect gradients for the entire training dataset. For each checkpoint, our goal is to obtain the gradients of all the training data that we would like to select from. An example script is shown below.
 
 ```bash
-CKPT=105
-
-TRAINING_DATA_NAME=dolly
-TRAINING_DATA_FILE=../data/train/processed/dolly/dolly_data.jsonl # when changing data name, change the data path accordingly
-GRADIENT_TYPE="adam"
-MODEL_PATH=../out/llama2-7b-p0.05-lora-seed3/checkpoint-${CKPT}
-OUTPUT_PATH=../grads/llama2-7b-p0.05-lora-seed3/${TRAINING_DATA_NAME}-ckpt${CKPT}-${GRADIENT_TYPE}
-DIMS="8192"
-
-./less/scripts/get_info/grad/get_train_lora_grads.sh "$TRAINING_DATA_FILE" "$MODEL_PATH" "$OUTPUT_PATH" "$DIMS" "$GRADIENT_TYPE"
+python3 -m less/scripts/get_info/grad/get_train_lora_grads --train_data_name <str> --train_file <str> --model_path <str> --ckpts <str> --dims <int>
 ```
 Ideally, you would aim to create a datastore that encompasses a gradient of all the checkpoints and training data from which you wish to choose. 
+`train_data_name` is the name of the training data, which will be used to store the gradients, it should be comprehensive for you to easily distignuish between different experiments.  
+`train_file` is the path to the training file.
+`model_path` is the path to the model in the `out` directory, e.g. `llama2-7b-p0.05-lora-seed3`.
+`ckpts` is the list of checkpoints to compute gradients for, e.g. `105 211 317 420`. The paper recommends using all four checkpoints.
+`dims` is the dimension of projection, default is 8192.
 
 ### Step 3: Selecting data for a task
 To select data for a particular downstream task, it's necessary to first prepare data specific to that task, using the same instruction-tuning prompt format as was employed during training. We have set up data loading modules for three evaluation datasets featured in our work: BBH, TydiQA, and MMLU. If you're interested in data selection for additional tasks, you can expand the [`less/data_selection/get_validation_dataset.py`](less/data_selection/get_validation_dataset.py) script to accommodate those tasks. Similar to obtaining gradients for training data, run the following script. The primary difference is that this process will yield SGD gradients for the validation data, following the formulation of the influence estimation. 

@@ -6,15 +6,12 @@ import random
 def run_training(
     train_file: str,
     model_path: str, 
-    data_dir: str="data/train",
     percentage: float=0.05,
     data_seed: int=3,
 ):
     job_name = f"{model_path.split('/')[-1]}-p{percentage}-lora-seed{data_seed}"
     output_dir = Path("../out") / job_name
     output_dir.mkdir(parents=True, exist_ok=True)
-
-    train_file = [str(Path(data_dir) / train_file)]
 
     # Base training args from base_training_args.sh
     base_training_args = [
@@ -88,7 +85,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_file", type=str, required=True)
     parser.add_argument("--model_path", type=str, required=True)
-    parser.add_argument("--data_dir", type=str, default="data/train")
     parser.add_argument("--percentage", type=float, default=0.05)
     parser.add_argument("--data_seed", type=int, default=3)
     args = parser.parse_args()
