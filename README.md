@@ -98,20 +98,6 @@ The gradients will be saved in the `grads` directory.
 After obtaining the gradients for the validation data, we can then select data for the task. The following script will calculate the influence score for each training data point, and select the top-k data points with the highest influence score.
 
 ```bash
-DIM=8192 # decide which dimension to use
-GRADIENT_PATH=../grads/llama2-7b-p0.05-lora-seed3/{}-ckpt{}-adam/dim${DIM}
-TRAIN_FILE_NAMES="flan_v2 cot dolly oasst1"
-CKPTS="105 211 317 420" # checkpoing index
-CHECKPOINT_WEIGHTS="1.6877e-05 1.2859e-05 7.7030e-06 2.5616e-06" # average lr of the epoch
-
-VALIDATION_GRADIENT_PATH=../grads/llama2-7b-p0.05-lora-seed3/{}-ckpt{}-sgd/dim${DIM}
-TARGET_TASK_NAMES="tydiqa"
-TARGET_TASK_FILES="..."  
-SELECTED_DATA_OUTPUT_PATH="../selected_data"
-MODEL_PATH=../out/llama2-7b-p0.05-lora-seed3/checkpoint-${CKPT}
-
-./less/scripts/data_selection/matching.sh "$GRADIENT_PATH" "$TRAIN_FILE_NAMES" "$CKPTS" "$CHECKPOINT_WEIGHTS" "$VALIDATION_GRADIENT_PATH" "$TARGET_TASK_NAMES" "$TARGET_TASK_FILES" "$SELECTED_DATA_OUTPUT_PATH" "$MODEL_PATH"
-
 python3 -m less.data_selection.matching \
   --train_file_names <str> \
   --ckpts <str> \
@@ -121,14 +107,13 @@ python3 -m less.data_selection.matching \
   --target_task_files <str> \
   --val_task_load_method <str> \
   --model_path <str>
-
 ```
 `train_file_names` is a list of training data names that you used to store the gradients.  
 `ckpts` is a list of checkpoints, e.g. `'105 211 317 420'`.  
 `dims` is the dimension of projection, default is 8192. 
-`checkpoint_weights` is a list of average lr of the epoch (check in Wandb), e.g. `'1.6877e-05 1.2859e-05 7.7030e-06 2.5616e-06'`.
-`target_task_names` is a list of target task names that you used to store the gradients. 
-`target_task_files` can be a full path or a HF repo name, don't forget to specify the `val_task_load_method` accordingly.
+`checkpoint_weights` is a list of average lr of the epoch (check in Wandb), e.g. `'1.6877e-05 1.2859e-05 7.7030e-06 2.5616e-06'`.  
+`target_task_names` is a list of target task names that you used to store the gradients.   
+`target_task_files` can be a full path or a HF repo name, don't forget to specify the `val_task_load_method` accordingly.  
 `model_path` is the path to the model in the `out` directory, e.g. `llama2-7b-p0.05-lora-seed3`.
 
 The influence score for each training data point will be saved in the `OUTPUT_PATH` directory. You can use the following script to select the top-k data points with the highest influence score. 
