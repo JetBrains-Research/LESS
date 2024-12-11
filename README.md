@@ -27,6 +27,8 @@ pip3 install torch==2.1.2 torchvision torchaudio
 ```
 cd LESS
 pip install -r requirement.txt
+or 
+poetry install
 ```
 
 **Step 3**: Finally, install the `less` package in editable mode to make it accessible for your development environment:
@@ -44,75 +46,85 @@ We follow the [open-instruct](https://github.com/allenai/open-instruct?tab=readm
 To enhance downstream performance from data selection, it's crucial to start with a warmup training step. This involves selecting a small portion of your entire dataset to train using the LoRA method. Follow these steps for effective warmup training:
 
 ```bash 
-DATA_DIR=../data
-MODEL_PATH=meta-llama/Llama-2-7b-hf
-PERCENTAGE=0.05 # percentage of the full data to train, you can specify the training file you want to use in the script
-DATA_SEED=3
-JOB_NAME=llama2-7b-p${PERCENTAGE}-lora-seed${DATA_SEED}
-
-./less/scripts/train/warmup_lora_train.sh "$DATA_DIR" "$MODEL_PATH" "$PERCENTAGE" "$DATA_SEED" "$JOB_NAME"
+python3 -m less.scripts.train.warmup_lora_train --train_file <str> --model_name_or_path <str>
 ```
+NB: there are more optional arguments that you can use to alter the training process. Please refer to the script for more details.
+You can also set `--percentage` to specify the percentage of data to train on (default is 0.05) and `--data_seed` to specify the seed for data selection (default is 3).
+The checkpoint will be saved in the `out` directory.
 
 ### Step 2: Building the gradient datastore
 Once the initial warmup training stage is completed, we will collect gradients for the entire training dataset. For each checkpoint, our goal is to obtain the gradients of all the training data that we would like to select from. An example script is shown below.
 
 ```bash
-CKPT=105
-
-TRAINING_DATA_NAME=dolly
-TRAINING_DATA_FILE=../data/train/processed/dolly/dolly_data.jsonl # when changing data name, change the data path accordingly
-GRADIENT_TYPE="adam"
-MODEL_PATH=../out/llama2-7b-p0.05-lora-seed3/checkpoint-${CKPT}
-OUTPUT_PATH=../grads/llama2-7b-p0.05-lora-seed3/${TRAINING_DATA_NAME}-ckpt${CKPT}-${GRADIENT_TYPE}
-DIMS="8192"
-
-./less/scripts/get_info/grad/get_train_lora_grads.sh "$TRAINING_DATA_FILE" "$MODEL_PATH" "$OUTPUT_PATH" "$DIMS" "$GRADIENT_TYPE"
+python3 -m less.scripts.get_info.grad.get_train_lora_grads \
+  --train_data_name <str> \
+  --train_file <str> \
+  --model_path <str> \
+  --ckpts <str> \
+  --dims <int>
 ```
-Ideally, you would aim to create a datastore that encompasses a gradient of all the checkpoints and training data from which you wish to choose. 
+Ideally, you would aim to create a datastore that encompasses a gradient of all the checkpoints and training data from which you wish to choose.  
+`train_data_name` is the name of the training data, which will be used to store the gradients, it should be comprehensive for you to easily distignuish between different experiments.  
+`train_file` is the path to the training file.  
+`model_path` is the path to the model in the `out` directory, e.g. `llama2-7b-p0.05-lora-seed3`.  
+`ckpts` is the list of checkpoints to compute gradients for, e.g. `105 211 317 420`. The paper recommends using all four checkpoints.  
+`dims` is the dimension of projection, default is 8192.
+
+The gradients will be saved in the `grads` directory.
 
 ### Step 3: Selecting data for a task
 To select data for a particular downstream task, it's necessary to first prepare data specific to that task, using the same instruction-tuning prompt format as was employed during training. We have set up data loading modules for three evaluation datasets featured in our work: BBH, TydiQA, and MMLU. If you're interested in data selection for additional tasks, you can expand the [`less/data_selection/get_validation_dataset.py`](less/data_selection/get_validation_dataset.py) script to accommodate those tasks. Similar to obtaining gradients for training data, run the following script. The primary difference is that this process will yield SGD gradients for the validation data, following the formulation of the influence estimation. 
 
-NB: for your custom datasets, you can provide a full path to the data or HF repo name in the DATA_DIR. Don't forget to adjust `less/data_selection/get_validation_dataset.py` to add your task name to the appropriate load method.
+You should gain the gradients of the validation data for all the checkpoints you used for building the gradient datastore in the previous step. 
 
 ```bash
-
-CKPT=105
-TASK=tydiqa
-MODEL_PATH=../out/llama2-7b-p0.05-lora-seed3/checkpoint-${CKPT}
-OUTPUT_PATH=../grads/llama2-7b-p0.05-lora-seed3/${TASK}-ckpt${CKPT}-sgd # for validation data, we always use sgd
-DATA_DIR=../data
-DIMS="4096 8192" # We use 8192 as our default projection dimension 
-
-./less/scripts/get_info/grad/get_eval_lora_grads.sh "$TASK" "$DATA_DIR" "$MODEL_PATH" $OUTPUT_PATH "$DIMS"
+python3 -m less.scripts.get_info.grad.get_eval_lora_grads \
+  --task <str> \
+  --data_dir <str> \
+  --val_task_load_method <str> \
+  --model_path <str> \
+  --ckpts <str> \
+  --dims <int>
 ```
-You should gain the gradients of the validation data for all the checkpoints you used for building the gradient datastore in the previous step. After obtaining the gradients for the validation data, we can then select data for the task. The following script will calculate the influence score for each training data point, and select the top-k data points with the highest influence score.
+`task` is the name of the task, which will be used to store the gradients.  
+`data_dir` is the path to the data directory. If you are using one of the predifined datasets ("bbh", "tydiqa", "mmlu"), this should point to the data directory. If you are using your own custom dataset, this should be a full path to a JSONL file or a HF repo name. We also expect that every custom dataset has a `content` column.  If that's not the case, you can change the tokenization function in the `less/data_selection/get_validation_dataset.py` script to encode the data.  
+`val_task_load_method` is the method to load the validation data, can be `hf`, `local_hf`, `local_json`. You should specify this if you are using your own custom dataset. Default is `None`, then it's assumned that you are using the predifined datasets.  
+`model_path` is the path to the model in the `out` directory, e.g. `llama2-7b-p0.05-lora-seed3`.  
+`ckpts` is the list of checkpoints to compute gradients for, e.g. `'105 211 317 420'`.  
+`dims` is the dimension of projection, default is 8192.
+
+The gradients will be saved in the `grads` directory.
+
+After obtaining the gradients for the validation data, we can then select data for the task. The following script will calculate the influence score for each training data point, and select the top-k data points with the highest influence score.
 
 ```bash
-DIM=8192 # decide which dimension to use
-GRADIENT_PATH=../grads/llama2-7b-p0.05-lora-seed3/{}-ckpt{}-adam/dim${DIM}
-TRAIN_FILE_NAMES="flan_v2 cot dolly oasst1"
-CKPTS="105 211 317 420" # checkpoing index
-CHECKPOINT_WEIGHTS="1.6877e-05 1.2859e-05 7.7030e-06 2.5616e-06" # average lr of the epoch
-
-VALIDATION_GRADIENT_PATH=../grads/llama2-7b-p0.05-lora-seed3/{}-ckpt{}-sgd/dim${DIM}
-TARGET_TASK_NAMES="tydiqa"
-TARGET_TASK_FILES="..."
-SELECTED_DATA_OUTPUT_PATH="../selected_data"
-MODEL_PATH=../out/llama2-7b-p0.05-lora-seed3/checkpoint-${CKPT}
-
-./less/scripts/data_selection/matching.sh "$GRADIENT_PATH" "$TRAIN_FILE_NAMES" "$CKPTS" "$CHECKPOINT_WEIGHTS" "$VALIDATION_GRADIENT_PATH" "$TARGET_TASK_NAMES" "$TARGET_TASK_FILES" "$SELECTED_DATA_OUTPUT_PATH" "$MODEL_PATH"
+python3 -m less.data_selection.matching \
+  --train_file_names <str> \
+  --ckpts <str> \
+  --dims <int> \
+  --checkpoint_weights <str> \
+  --target_task_names <str> \
+  --target_task_files <str> \
+  --val_task_load_method <str> \
+  --model_path <str>
 ```
+`train_file_names` is a list of training data names that you used to store the gradients.  
+`ckpts` is a list of checkpoints, e.g. `'105 211 317 420'`.  
+`dims` is the dimension of projection, default is 8192. 
+`checkpoint_weights` is a list of average lr of the epoch (check in Wandb), e.g. `'1.6877e-05 1.2859e-05 7.7030e-06 2.5616e-06'`.  
+`target_task_names` is a list of target task names that you used to store the gradients.   
+`target_task_files` can be a full path or a HF repo name, don't forget to specify the `val_task_load_method` accordingly.  
+`model_path` is the path to the model in the `out` directory, e.g. `llama2-7b-p0.05-lora-seed3`.
 
 The influence score for each training data point will be saved in the `OUTPUT_PATH` directory. You can use the following script to select the top-k data points with the highest influence score. 
 
 ```bash
 python3 -m less.data_selection.write_selected_data \
---target_task_names ${TARGET_TASK_NAMES} \
---train_file_names ${TRAIN_FILE_NAMES} \
---train_files ../data/train/processed/dolly/dolly_data.jsonl ../data/train/processed/oasst1/oasst1_data.jsonl \
---output_path $SELECTED_DATA_OUTPUT_PATH \
---percentage 0.05
+--target_task_names <str> \
+--train_file_names <str> \
+--train_files <str> \
+--output_path <str> \
+--percentage <float>
 ```
 
 ### Step 4: Train with your selected data
