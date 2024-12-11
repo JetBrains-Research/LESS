@@ -60,7 +60,7 @@ def run_training(
         "--percentage", str(percentage),
         "--data_seed", str(data_seed),
         "--train_files"
-    ] + train_file + base_training_args
+    ] + [train_file] + base_training_args
 
     # Set up logging
     log_file = output_dir / "train.log"
@@ -88,4 +88,4 @@ if __name__ == "__main__":
     parser.add_argument("--percentage", type=float, default=0.05)
     parser.add_argument("--data_seed", type=int, default=3)
     args = parser.parse_args()
-    run_training(args.train_file, args.model_path, args.data_dir, args.percentage, args.data_seed)
+    run_training(args.train_file, args.model_path, args.percentage, args.data_seed)

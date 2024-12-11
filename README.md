@@ -46,7 +46,7 @@ We follow the [open-instruct](https://github.com/allenai/open-instruct?tab=readm
 To enhance downstream performance from data selection, it's crucial to start with a warmup training step. This involves selecting a small portion of your entire dataset to train using the LoRA method. Follow these steps for effective warmup training:
 
 ```bash 
-python3 -m less/scripts/train/warmup_lora_train --train_file <str> --model_path <str>
+python3 -m less.scripts.train.warmup_lora_train --train_file <str> --model_path <str>
 ```
 NB: there are more optional arguments that you can use to alter the training process. Please refer to the script for more details.
 You can also set `--percentage` to specify the percentage of data to train on (default is 0.05) and `--data_seed` to specify the seed for data selection (default is 3).
@@ -56,7 +56,7 @@ The checkpoint will be saved in the `out` directory.
 Once the initial warmup training stage is completed, we will collect gradients for the entire training dataset. For each checkpoint, our goal is to obtain the gradients of all the training data that we would like to select from. An example script is shown below.
 
 ```bash
-python3 -m less/scripts/get_info/grad/get_train_lora_grads \
+python3 -m less.scripts.get_info.grad.get_train_lora_grads \
   --train_data_name <str> \
   --train_file <str> \
   --model_path <str> \
@@ -78,7 +78,7 @@ To select data for a particular downstream task, it's necessary to first prepare
 You should gain the gradients of the validation data for all the checkpoints you used for building the gradient datastore in the previous step. 
 
 ```bash
-python3 -m less/scripts/get_info/grad/get_eval_lora_grads \
+python3 -m less.scripts.get_info.grad.get_eval_lora_grads \
   --task <str> \
   --data_dir <str> \
   --val_task_load_method <str> \
@@ -87,7 +87,7 @@ python3 -m less/scripts/get_info/grad/get_eval_lora_grads \
   --dims <int>
 ```
 `task` is the name of the task, which will be used to store the gradients.  
-`data_dir` is the path to the data directory. If you are using one of the predifined datasets ("bbh", "tydiqa", "mmlu"), this should point to the data directory. If you are using your own custom dataset, this should be a full path to a JSONL file or a HF repo name.  
+`data_dir` is the path to the data directory. If you are using one of the predifined datasets ("bbh", "tydiqa", "mmlu"), this should point to the data directory. If you are using your own custom dataset, this should be a full path to a JSONL file or a HF repo name. We also expect that every custom dataset has a `content` column.  If that's not the case, you can change the tokenization function in the `less/data_selection/get_validation_dataset.py` script to encode the data.  
 `val_task_load_method` is the method to load the validation data, can be `hf`, `local_hf`, `local_json`. You should specify this if you are using your own custom dataset. Default is `None`, then it's assumned that you are using the predifined datasets.  
 `model_path` is the path to the model in the `out` directory, e.g. `llama2-7b-p0.05-lora-seed3`.  
 `ckpts` is the list of checkpoints to compute gradients for, e.g. `'105 211 317 420'`.  

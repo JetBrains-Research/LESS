@@ -7,14 +7,14 @@ from tqdm import tqdm
 
 argparser = argparse.ArgumentParser(
     description='Script for selecting the data for training')
-argparser.add_argument('--train_file_name', type=str, nargs='+',
+argparser.add_argument('--train_file_names', type=str, nargs='+',
                        help='The name of the training file')
-argparser.add_argument('--ckpts', type=int, nargs='+', help="Checkpoints, e.g. '105 211 317 420'")
+argparser.add_argument('--ckpts', type=str, help="Checkpoints, e.g. '105 211 317 420'")
 argparser.add_argument('--dims', default=8192, type=int, required=False, help='Dimention used for grads')
-argparser.add_argument('--checkpoint_weights', type=float, nargs='+', help="Average lr of the epoch (check in wandb)")
-argparser.add_argument('--target_task_name', type=str,
-                       nargs='+', help="The name of the target task")
-argparser.add_argument('--target_task_file', type=str, nargs='+',
+argparser.add_argument('--checkpoint_weights', type=str, help="Average lr of the epoch (check in wandb)")
+argparser.add_argument('--target_task_names', type=str,
+                       nargs='+', help="The name of the target task(s)")
+argparser.add_argument('--target_task_files', type=str, nargs='+',
                        help='Can be a full path or a HF repo name')
 argparser.add_argument('--val_task_load_method', type=str, default=None, help='The method to load the validation data, can be "hf", "local_hf", "local_json"')
 argparser.add_argument('--model_path', type=str, required=True, help='Model path, e.g. llama2-7b-p0.05-lora-seed3')
@@ -36,23 +36,26 @@ def calculate_influence_score(training_info: torch.Tensor, validation_info: torc
         training_info, validation_info.transpose(0, 1))
     return influence_scores
 
+checkpoints = [int(i) for i in args.ckpts.split(" ")]
 
+checkpoint_weights = [float(i) for i in args.checkpoint_weights.split(" ")]
 # renormalize the checkpoint weights
-if sum(args.checkpoint_weights) != 1:
-    s = sum(args.checkpoint_weights)
-    args.checkpoint_weights = [i/s for i in args.checkpoint_weights]
+if sum(checkpoint_weights) != 1:
+    s = sum(checkpoint_weights)
+    args.checkpoint_weights = [i/s for i in checkpoint_weights]
 
 # calculate the influence score for each validation task
 for target_task_name, target_task_file in zip(args.target_task_names, args.target_task_files):
+    model_path = os.path.join("../out", args.model_path, f"checkpoint-{checkpoints[0]}")
     val_dataset = get_dataset(task=target_task_name, data_dir=target_task_file, 
-                              model_path=args.model_path, val_task_load_method=args.val_task_load_method)
+                              model_path=model_path, val_task_load_method=args.val_task_load_method)
     num_val_examples = len(val_dataset)
     for train_file_name in args.train_file_names:
         influence_score = 0
-        for i, ckpt in enumerate(args.ckpts):
+        for i, ckpt in enumerate(checkpoints):
             # validation_path = args.validation_gradient_path.format(
             # target_task_name, ckpt)
-            validation_path = os.path.join("../grads", args.model_path, f"{train_file_name}_ckpt{ckpt}_sgd/dim{args.dims}")
+            validation_path = os.path.join("../grads", args.model_path, f"{target_task_name}-ckpt{ckpt}-sgd/dim{args.dims}")
             if os.path.isdir(validation_path):
                 validation_path = os.path.join(validation_path, "all_orig.pt")
             validation_info = torch.load(validation_path)
@@ -61,7 +64,7 @@ for target_task_name, target_task_file in zip(args.target_task_names, args.targe
                 validation_info = torch.tensor(validation_info)
             validation_info = validation_info.to(device).half()
             # gradient_path = args.gradient_path.format(train_file_name, ckpt)
-            gradient_path = os.path.join("../grads", args.model_path, f"{train_file_name}_ckpt{ckpt}_adam/dim{args.dims}")
+            gradient_path = os.path.join("../grads", args.model_path, f"{train_file_name}-ckpt{ckpt}-adam/dim{args.dims}")
             if os.path.isdir(gradient_path):
                 gradient_path = os.path.join(gradient_path, "all_orig.pt")
             training_info = torch.load(gradient_path)

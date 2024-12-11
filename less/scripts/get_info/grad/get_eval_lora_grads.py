@@ -18,7 +18,7 @@ def main():
     # Process each checkpoint
     for ckpt in ckpts:
         # Create output directory if it doesn't exist
-        model = os.path.join("../out", args.model_path, f"/checkpoint-{ckpt}")
+        model = os.path.join("../out", args.model_path, f"checkpoint-{ckpt}")
         
         # Construct output path with checkpoint
         output_path = os.path.join("../grads", args.model_path, f"{args.task}-ckpt{ckpt}-sgd")
@@ -30,7 +30,7 @@ def main():
             "--info_type", "grads", 
             "--model_path", model,
             "--output_path", output_path,
-            "--gradient_projection_dimension", args.dims,
+            "--gradient_projection_dimension", str(args.dims),
             "--gradient_type", "sgd",
             "--data_dir", args.data_dir,
             "--val_task_load_method", args.val_task_load_method

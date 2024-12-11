@@ -447,8 +447,6 @@ def get_dataset(task, **kwargs):
         if tokenizer.pad_token is None:
             tokenizer.add_special_tokens({"pad_token": "<pad>"})
         kwargs["tokenizer"] = tokenizer
-    else:
-        raise ValueError("No tokenizer found")
 
     if task == "bbh":
         return get_bbh_dataset(**kwargs)

@@ -17,7 +17,7 @@ def main():
     # Process each checkpoint
     for ckpt in ckpts:
         # Construct model path with checkpoint
-        model = os.path.join("../out", args.model_path, f"/checkpoint-{ckpt}")
+        model_checkpoint_path = os.path.join("../out", args.model_path, f"checkpoint-{ckpt}")
         
         # Construct output path with checkpoint
         output_path = os.path.join("../grads", args.model_path, f"{args.train_data_name}-ckpt{ckpt}-adam")
@@ -30,9 +30,9 @@ def main():
             "python3", "-m", "less.data_selection.get_info",
             "--train_file", args.train_file,
             "--info_type", "grads",
-            "--model_path", model,
+            "--model_path", model_checkpoint_path,
             "--output_path", output_path,
-            "--gradient_projection_dimension", args.dims,
+            "--gradient_projection_dimension", str(args.dims),
             "--gradient_type", "adam"
         ]
 
