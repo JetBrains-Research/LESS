@@ -46,7 +46,7 @@ We follow the [open-instruct](https://github.com/allenai/open-instruct?tab=readm
 To enhance downstream performance from data selection, it's crucial to start with a warmup training step. This involves selecting a small portion of your entire dataset to train using the LoRA method. Follow these steps for effective warmup training:
 
 ```bash 
-python3 -m less.scripts.train.warmup_lora_train --train_file <str> --model_path <str>
+python3 -m less.scripts.train.warmup_lora_train --train_file <str> --model_name_or_path <str>
 ```
 NB: there are more optional arguments that you can use to alter the training process. Please refer to the script for more details.
 You can also set `--percentage` to specify the percentage of data to train on (default is 0.05) and `--data_seed` to specify the seed for data selection (default is 3).

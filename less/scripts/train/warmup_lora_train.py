@@ -5,11 +5,11 @@ import random
 
 def run_training(
     train_file: str,
-    model_path: str, 
+    model_name_or_path: str, 
     percentage: float=0.05,
     data_seed: int=3,
 ):
-    job_name = f"{model_path.split('/')[-1]}-p{percentage}-lora-seed{data_seed}"
+    job_name = f"{model_name_or_path.split('/')[-1]}-p{percentage}-lora-seed{data_seed}"
     output_dir = Path("../out") / job_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -42,12 +42,12 @@ def run_training(
 ]
 
     # Add FSDP config for large models
-    if model_path == "meta-llama/Llama-2-13b-hf":
+    if model_name_or_path == "meta-llama/Llama-2-13b-hf":
         base_training_args.extend([
             "--fsdp", "full_shard auto_wrap",
             "--fsdp_config", "llama2_13b_finetune"
         ])
-    elif model_path == "mistralai/Mistral-7B-v0.1":
+    elif model_name_or_path == "mistralai/Mistral-7B-v0.1":
         base_training_args.extend([
             "--fsdp", "full_shard auto_wrap", 
             "--fsdp_config", "mistral_7b_finetune"
@@ -55,7 +55,7 @@ def run_training(
 
     # Combine all training args
     training_args = [
-        "--model_name_or_path", model_path,
+        "--model_name_or_path", model_name_or_path,
         "--output_dir", str(output_dir),
         "--percentage", str(percentage),
         "--data_seed", str(data_seed),
@@ -84,8 +84,8 @@ def run_training(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--train_file", type=str, required=True)
-    parser.add_argument("--model_path", type=str, required=True)
+    parser.add_argument("--model_name_or_path", type=str, required=True)
     parser.add_argument("--percentage", type=float, default=0.05)
     parser.add_argument("--data_seed", type=int, default=3)
     args = parser.parse_args()
-    run_training(args.train_file, args.model_path, args.percentage, args.data_seed)
+    run_training(args.train_file, args.model_name_or_path, args.percentage, args.data_seed)
