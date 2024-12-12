@@ -16,7 +16,7 @@ argparser.add_argument('--target_task_names', type=str,
                        nargs='+', help="The name of the target task(s)")
 argparser.add_argument('--target_task_files', type=str, nargs='+',
                        help='Can be a full path or a HF repo name')
-argparser.add_argument('--val_task_load_method', type=str, default=None, help='The method to load the validation data, can be "hf", "local_hf", "local_json"')
+argparser.add_argument('--val_task_load_method', type=str, help='The method to load the validation data, can be "hf", "local_hf", "local_json" or "predefined"')
 argparser.add_argument('--model_path', type=str, required=True, help='Model path, e.g. llama2-7b-p0.05-lora-seed3')
 
 args = argparser.parse_args()

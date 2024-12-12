@@ -6,7 +6,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", type=str, required=True, help="Task name (e.g. tydiqa, mmlu), will be used to store the gradients")
     parser.add_argument("--data_dir", type=str, required=True, help="Path to data directory, can also be a full path or a HF repo name") 
-    parser.add_argument("--val_task_load_method", default=None,type=str, required=False, help="The method to load the validation data, can be 'hf', 'local_hf', 'local_json'")
+    parser.add_argument("--val_task_load_method", type=str, required=True, help="The method to load the validation data, can be 'hf', 'local_hf', 'local_json'")
     parser.add_argument("--model_path", type=str, required=True, help="Path to model in the `out` directory, e.g. 'llama2-7b-p0.05-lora-seed3'")
     parser.add_argument("--ckpts", type=str, required=True, help="List of checkpoints to compute gradients for, e.g. '105 211 317 420'")
     parser.add_argument("--dims", default=8192, type=int, required=False, help="Dimension of projection")

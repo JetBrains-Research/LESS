@@ -88,7 +88,7 @@ python3 -m less.scripts.get_info.grad.get_eval_lora_grads \
 ```
 `task` is the name of the task, which will be used to store the gradients.  
 `data_dir` is the path to the data directory. If you are using one of the predifined datasets ("bbh", "tydiqa", "mmlu"), this should point to the data directory. If you are using your own custom dataset, this should be a full path to a JSONL file or a HF repo name. We also expect that every custom dataset has a `content` column.  If that's not the case, you can change the tokenization function in the `less/data_selection/get_validation_dataset.py` script to encode the data.  
-`val_task_load_method` is the method to load the validation data, can be `hf`, `local_hf`, `local_json`. You should specify this if you are using your own custom dataset. Default is `None`, then it's assumned that you are using the predifined datasets.  
+`val_task_load_method` is the method to load the validation data, can be `hf`, `local_hf`, `local_json` or `predefined`. First three methods are self-explanatory, `predefined` is used when you want to use the predefined validation data for a task, e.g. `tydiqa`.  
 `model_path` is the path to the model in the `out` directory, e.g. `llama2-7b-p0.05-lora-seed3`.  
 `ckpts` is the list of checkpoints to compute gradients for, e.g. `'105 211 317 420'`.  
 `dims` is the dimension of projection, default is 8192.
@@ -114,6 +114,7 @@ python3 -m less.data_selection.matching \
 `checkpoint_weights` is a list of average lr of the epoch (check in Wandb), e.g. `'1.6877e-05 1.2859e-05 7.7030e-06 2.5616e-06'`.  
 `target_task_names` is a list of target task names that you used to store the gradients.   
 `target_task_files` can be a full path or a HF repo name, don't forget to specify the `val_task_load_method` accordingly.  
+`val_task_load_method` is the method to load the validation data, can be `hf`, `local_hf`, `local_json` or `predefined`.  
 `model_path` is the path to the model in the `out` directory, e.g. `llama2-7b-p0.05-lora-seed3`.
 
 The influence score for each training data point will be saved in the `OUTPUT_PATH` directory. You can use the following script to select the top-k data points with the highest influence score. 

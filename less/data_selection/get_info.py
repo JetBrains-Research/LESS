@@ -114,7 +114,7 @@ parser.add_argument("--chat_format", type=str,
 parser.add_argument("--use_chat_format", type=bool,
                     default=True, help="Whether to use chat format")
 parser.add_argument("--val_task_load_method", type=str,
-                    default=None, help="The method to load the validation data, can be 'hf', 'local_hf', 'local_json'")
+                    help="The method to load the validation data, can be 'hf', 'local_hf', 'local_json' or 'predefined'")
 parser.add_argument("--max_length", type=int, default=2048,
                     help="The maximum length")
 parser.add_argument("--zh", default=False, action="store_true",
