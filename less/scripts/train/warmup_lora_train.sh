@@ -13,7 +13,7 @@ if [[ ! -d $output_dir ]]; then
     mkdir -p $output_dir
 fi
 
-train_files=("$data_dir/kstack_500k/train.jsonl")
+train_files=("$data_dir/train.jsonl")
 
 # use fsdp for large models
 if [[ $model_path == "meta-llama/Llama-2-13b-hf" ]]; then

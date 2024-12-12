@@ -14,7 +14,7 @@ def parse_args():
     argparser.add_argument('--target_task_names', type=str,
                            nargs='+', help='The name of the target task')
     argparser.add_argument('--output_path', type=str,
-                           default="selected_data", help='The path to the output')
+                           default="../selected_data", help='The path to the output')
     argparser.add_argument('--max_samples', type=int,
                            default=None, help='The maximum number of samples')
     argparser.add_argument('--percentage', type=float, default=None,
